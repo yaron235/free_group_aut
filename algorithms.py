@@ -1,9 +1,12 @@
 from sage.groups.free_group import is_FreeGroup
 from sage.rings.infinity import PlusInfinity
 from itertools import product
+import os
+import pickle
+from tqdm import tqdm
 from free_groups.core_graph import CoreGraph, create_covers_DAG
 from free_groups.free_group_automorphism import get_whitehead_move, get_whitehead_move_of_cut, FreeGroupAutomorphism
-from networkx import Graph, set_edge_attributes
+from networkx import Graph, connected_components
 from networkx.algorithms.flow import minimum_cut
 
 infinity = PlusInfinity()
@@ -92,18 +95,17 @@ def minimize(F, word):
     assert is_FreeGroup(F), "F must be a free group"
     assert word in F, "word must be in F"
 
-    word = shortest_cyclic_shift(F, word)
-    new_word = get_best_whitehead_nbrs(F, word)[0]
+    curr_word = word
+    new_word = minimize_one_step(F, curr_word)
+    while len(new_word.Tietze()) < len(curr_word.Tietze()):
+        curr_word, new_word = new_word, minimize_one_step(F, new_word)
 
-    if len(new_word.Tietze()) < len(word.Tietze()):
-        return minimize(F, new_word)
-    else:
-        return word
+    return curr_word
 
 
-def get_best_whitehead_nbrs(F, word):
+def minimize_one_step(F, word):
     """
-    Find the shortest words that can be
+    Find the shortest word that can be
     obtained by applying a single Whitehead
     move to a word.
     """
@@ -111,32 +113,32 @@ def get_best_whitehead_nbrs(F, word):
     r = F.rank()
     assert word in F, "word must be in F"
 
+    word = shortest_cyclic_shift(F, word)
+
     letters = list(range(1, r + 1)) + list(range(-r, 0))
 
     G = get_whitehead_graph(F, word)
 
     best_change = 0
-    best_moves = []
+    best_move = tuple()
     for v in letters:
         cap, cut = minimum_cut(G, v, -v)
         change = cap - sum([G[v][u]['capacity'] for u in G[v]])
         if change < best_change:
             best_change = change
-            best_moves = [(v, cut[0])]
-        elif change == best_change:
-            best_moves.append((v, cut[0]))
+            best_move = (v, cut[0])
 
     assert best_change <= 0, "Something is wrong"
 
-    new_words = []
-    for v, cut in best_moves:
-        phi = get_whitehead_move_of_cut(F, v, cut)
-        new_words.append(shortest_cyclic_shift(F, phi(word)))
+    if best_change == 0:
+        return word
 
-    assert all([len(new_word.Tietze()) == len(word.Tietze()) + best_change
-                for new_word in new_words]), "Something is wrong"
+    v, cut = best_move
+    phi = get_whitehead_move_of_cut(F, v, cut)
+    new_word = shortest_cyclic_shift(F, phi(word))
+    assert len(new_word.Tietze()) == len(word.Tietze()) + best_change, "Something is wrong"
 
-    return new_words
+    return new_word
 
 
 def canonical_letter_permute_form(F, word):
@@ -163,6 +165,105 @@ def canonical_letter_permute_form(F, word):
         gen_imgs[v - 1] = (len(letter_order) + i + 1,)
     phi = FreeGroupAutomorphism(F, gen_imgs)
     return phi(word)
+
+
+def get_minword_wh_nbrs(F, word):
+    """
+    Assuming word is (AutF)-minimial, find
+    all words that can be obtained from
+    word by exactly one Whitehead move.
+
+    The assumption on minimality is not
+    necessary, but we just find whitehead
+    move that don't change the length.
+    """
+    assert is_FreeGroup(F), "F must be a free group"
+    r = F.rank()
+    assert word in F, "word must be in F"
+
+    letters = list(range(1, r + 1)) + list(range(-r, 0))
+
+    word_len = len(word.Tietze())
+    nbrs = set()
+    for v in letters:
+        for choices in product([(0, 0), (0, 1), (1, 0), (1, 1)], repeat=r - 1):
+            phi = get_whitehead_move(F, v, choices)
+            nbr = phi(word)
+            if len(nbr.Tietze()) == word_len:
+                nbrs.add(nbr)
+
+    return list(nbrs)
+
+
+def get_all_aut_classes(F, length, verbose=True):
+    """
+    Get all automorphism classes of words
+    in F_r with bounded length.
+    """
+    assert is_FreeGroup(F), "F must be a free group"
+    r = F.rank()
+
+    cache_dir = os.fsencode("aut_classes_cache/")
+    cache_file = os.fsencode(f"r{r}-len{length}.pkl")
+    if os.path.exists(cache_dir + cache_file):
+        aut_classes = pickle.load(open(cache_dir + cache_file, 'rb'))
+        return [set([F(w.Tietze()) for w in cls]) for cls in aut_classes]
+    # Maybe we computed something bigger before
+    for file in os.listdir(cache_dir):
+        filename = os.fsdecode(file)
+        r_str, len_str = filename.split(".")[0].split("-")
+        r_cached = int(r_str[1:])
+        len_cached = int(len_str[3:])
+        if r_cached > r and len_cached > length:
+            cached_aut_classes = pickle.load(open(cache_dir + file, 'rb'))
+            aut_classes = []
+            for cls in cached_aut_classes:
+                word = cls.pop()
+                word_rep = word.Tietze()
+                if len(word_rep) == 0:
+                    aut_classes.append(set([F(1)]))
+                elif len(word_rep) < length and max(set([abs(x) for x in word_rep])) < r:
+                    cls.add(word)
+                    aut_classes.append(set([F(w.Tietze()) for w in cls]))
+            pickle.dump(aut_classes, open(f"aut_classes_cache/r{r}-len{length}.pkl", 'wb'))
+            return aut_classes
+
+    letters = list(range(1, r + 1)) + list(range(-r, 0))
+
+    minimal_words = set()
+
+    tuples = product(letters, repeat=length)
+    if verbose:
+        tuples = tqdm(tuples)
+    for tup in tuples:
+        word = F(tup)
+        if word == canonical_letter_permute_form(F, word):  # We only consider canonized orders
+            minimal_words.add(canonical_letter_permute_form(F, minimize(F, word)))
+    if length > 0:
+        # Due to cancellations (e.g. (1,-1, ...)), we only
+        # need to check words of length N, N - 1.
+        tuples = product(letters, repeat=length - 1)
+        if verbose:
+            tuples = tqdm(tuples)
+        for tup in tuples:
+            word = F(tup)
+            if word == canonical_letter_permute_form(F, word):  # We only consider canonized orders
+                minimal_words.add(canonical_letter_permute_form(F, minimize(F, word)))
+    if verbose:
+        print("Finished minimizing letters")
+
+    G = Graph()
+    G.add_nodes_from(minimal_words)
+    for word in minimal_words:
+        nbrs = get_minword_wh_nbrs(F, word)
+        assert(len(nbrs[0].Tietze()) == len(word.Tietze())), "Something's wrong"
+        for nbr in nbrs:
+            nbr = canonical_letter_permute_form(F, nbr)
+            assert nbr in minimal_words, f"Found a word ({nbr}) not in minimal_words"
+            G.add_edge(word, nbr)
+    aut_classes = list(connected_components(G))
+    pickle.dump(aut_classes, open(f"aut_classes_cache/r{r}-len{length}.pkl", 'wb'))
+    return aut_classes
 
 # === Primitivity Rank and Algebraic Extensions ===
 
