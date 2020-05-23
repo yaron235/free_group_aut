@@ -231,13 +231,19 @@ def get_all_aut_classes(F, length, verbose=True):
     letters = list(range(1, r + 1)) + list(range(-r, 0))
 
     minimal_words = set()
+    all_words = set()  # To avoid stuff like (1,-1,2,3) and (2,-2,2,3)
 
-    tuples = product(letters, repeat=length)
+    # We only consider words that are in "canonical order"
+    # We also assume we only check tuple starting with a
+    # (They can still be a*a^-1*b*...)
+    tuples = product(letters, repeat=length - 1)
     if verbose:
         tuples = tqdm(tuples)
     for tup in tuples:
+        tup = [1] + list(tup)
         word = F(tup)
-        if word == canonical_letter_permute_form(F, word):  # We only consider canonized orders
+        if word not in all_words and word == canonical_letter_permute_form(F, word):
+            all_words.add(word)
             minimal_words.add(canonical_letter_permute_form(F, minimize(F, word)))
     if length > 0:
         # Due to cancellations (e.g. (1,-1, ...)), we only
@@ -250,7 +256,8 @@ def get_all_aut_classes(F, length, verbose=True):
             if word == canonical_letter_permute_form(F, word):  # We only consider canonized orders
                 minimal_words.add(canonical_letter_permute_form(F, minimize(F, word)))
     if verbose:
-        print("Finished minimizing letters")
+        print(f"Finished minimizing letters, found {len(minimal_words)} minimal words.")
+        print("Creating the Whitehead moves graph on minimal words.")
 
     G = Graph()
     G.add_nodes_from(minimal_words)
