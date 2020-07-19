@@ -44,45 +44,6 @@ def minimize_naive(F, word):
         return word
 
 
-def get_whitehead_graph(F, word):
-    """
-    Construct the Whitehead graph of the word.
-    This is the graph whose vertices are the
-    letters of F, and for any (xy) appearing in
-    the word there's an edge between x and y^-1.
-    """
-    assert is_FreeGroup(F), "F must be a free group"
-    assert word in F, "word must be in F"
-    r = F.rank()
-    G = Graph()
-    G.add_nodes_from(list(range(1, r + 1)) + list(range(-r, 0)))
-    word_repr = word.Tietze()
-    edges = [(word_repr[i], -word_repr[i + 1]) for i in range(-1, len(word_repr) - 1)]
-    for u, v in edges:
-        if not G.has_edge(u, v):
-            G.add_edge(u, v, capacity=1)
-        else:
-            G[u][v]['capacity'] += 1
-    return G
-
-
-def shortest_cyclic_shift(F, word):
-    """
-    Find the shortest cyclic shift of a word.
-    """
-    word_rep = word.Tietze()
-    word_len = len(word_rep)
-    if word_len == 0:
-        return word
-    i = 0
-    while word_rep[i] == -word_rep[-1 - i]:
-        i += 1
-    if word_len - i < i - 1:  # word is x^{-1} x, shouldn't happen
-        return F(1)
-    else:
-        return F(word_rep[i:word_len - i])
-
-
 def minimize(F, word):
     """
     Find the minimal form of a word.
@@ -141,6 +102,47 @@ def minimize_one_step(F, word):
     return new_word
 
 
+def get_whitehead_graph(F, word):
+    """
+    Construct the Whitehead graph of the word.
+    This is the graph whose vertices are the
+    letters of F, and for any (xy) appearing in
+    the word there's an edge between x and y^-1.
+    """
+    assert is_FreeGroup(F), "F must be a free group"
+    assert word in F, "word must be in F"
+    r = F.rank()
+    G = Graph()
+    G.add_nodes_from(list(range(1, r + 1)) + list(range(-r, 0)))
+    word_repr = word.Tietze()
+    edges = [(word_repr[i], -word_repr[i + 1]) for i in range(-1, len(word_repr) - 1)]
+    for u, v in edges:
+        if not G.has_edge(u, v):
+            G.add_edge(u, v, capacity=1)
+        else:
+            G[u][v]['capacity'] += 1
+    return G
+
+
+def shortest_cyclic_shift(F, word):
+    """
+    Find the shortest cyclic shift of a word.
+    """
+    word_rep = word.Tietze()
+    word_len = len(word_rep)
+    if word_len == 0:
+        return word
+    i = 0
+    while word_rep[i] == -word_rep[-1 - i]:
+        i += 1
+    if word_len - i < i - 1:  # word is x^{-1} x, shouldn't happen
+        return F(1)
+    else:
+        return F(word_rep[i:word_len - i])
+
+# === Generating All Automrophism Classes ===
+
+
 def canonical_letter_permute_form(F, word):
     """
     Apply a permutation of the letters of F so
@@ -195,15 +197,16 @@ def get_minword_wh_nbrs(F, word):
     return list(nbrs)
 
 
-def get_all_aut_classes(F, length, verbose=True):
+def get_all_aut_classes(F, length, dirname="aut_classes_cache/", verbose=True):
     """
     Get all automorphism classes of words
     in F_r with bounded length.
+    Caches the result to dirname.
     """
     assert is_FreeGroup(F), "F must be a free group"
     r = F.rank()
 
-    cache_dir = os.fsencode("aut_classes_cache/")
+    cache_dir = os.fsencode(dirname)
     cache_file = os.fsencode(f"r{r}-len{length}.pkl")
     if os.path.exists(cache_dir + cache_file):
         aut_classes = pickle.load(open(cache_dir + cache_file, 'rb'))
@@ -309,3 +312,11 @@ def get_critical_groups_of_subgroup(F, group_gens, verbose=False):
 
 def get_critical_groups(F, word, verbose=False):
     return get_critical_groups_of_subgroup(F, [minimize(F, word)], verbose)
+
+
+def get_primitivity_rank_of_subgroup(F, group_gens, verbose=False):
+    return get_critical_groups_of_subgroup(F, group_gens, verbose)[0]
+
+
+def get_primitivity_rank(F, word, verbose=False):
+    return get_critical_groups(F, word, verbose)[0]
