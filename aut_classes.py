@@ -11,8 +11,7 @@ from networkx import Graph, connected_components
 
 def get_all_aut_classes(F, length, dirname="aut_classes_cache/", verbose=True):
     """
-    Get all automorphism classes of words
-    in F_r with bounded length.
+    Get all automorphism classes of words in F_r with bounded length.
     Caches the result to dirname.
     """
     assert is_FreeGroup(F), "F must be a free group"
@@ -31,7 +30,7 @@ def get_all_aut_classes(F, length, dirname="aut_classes_cache/", verbose=True):
         r_str, len_str = filename.split(".")[0].split("-")
         r_cached = int(r_str[1:])
         len_cached = int(len_str[3:])
-        if r_cached > r and len_cached > length:
+        if r_cached >= r and len_cached >= length:
             cached_aut_classes = pickle.load(open(cache_dir + file, 'rb'))
             aut_classes = []
             for cls in cached_aut_classes:

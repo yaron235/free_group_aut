@@ -5,7 +5,7 @@ Contains:
 
 - Whitehead's minimization algorithm
 - Whitehead's algorithm for checking if two words are automorphic
-- Computation of primitivity rank
+- Computation of primitivity rank (of words and subgroups)
 - Computation of algebraic extensions
 - ...
 
@@ -48,7 +48,7 @@ False
 >> # Get all automorphism classes of bounded length
 >> free_groups.get_all_aut_classes(F, 4)
 [{a^2*b^2, a*b*a^-1*b, a*b*a*b^-1, a*b^2*a}, {a^3}, {a}, {a^4}, {a*b*a^-1*b^-1}, {1}, {a^2}]
->> # returned a list of sets of minimal representativesfor automorphism classes.
+>> # returned a list of sets of minimal representativesfor automorphism classes, and saved the result in aut_classes_cache/r3len4.pkl for caching purposes.
 ```
 
 
