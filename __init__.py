@@ -1,0 +1,5 @@
+from free_group_aut.algorithms.minimize import minimize
+from free_group_aut.algorithms.prim_rank import get_algebraic_extensions, get_critical_groups, \
+    get_primitivity_rank, get_critical_groups_of_subgroup, get_primitivity_rank_of_subgroup
+from free_group_aut.algorithms.whitehead_algorithm import are_automorphic
+from free_group_aut.aut_classes import get_all_aut_classes

@@ -1,43 +1,6 @@
 from sage.groups.free_group import is_FreeGroup
 
 
-class FreeGroupAutomorphism(object):
-    """
-    A class for representing automoprhism of free groups.
-    """
-
-    def __init__(self, F, gen_imgs):
-        """
-        F is the free groups.
-        gen_imgs are the images of the generators x_1,...,x_r.
-        """
-        assert is_FreeGroup(F), "F must be a free group!"
-        self.F = F
-        self.rank = F.rank()
-        assert len(gen_imgs) == self.rank, "The number of gen_imgs must be equal to the rank of F"
-        try:
-            self.gen_imgs = [F(img) for img in gen_imgs]
-        except (ValueError, TypeError):
-            raise ValueError("Could not convert gen_imgs to elements of F")
-        self.inverse_gen_imgs = [img ** (-1) for img in self.gen_imgs]
-
-    def __call__(self, word):
-        """
-        Apply the autuomorphism on a word.
-        """
-        assert word in self.F, "word must be in F."
-        result = self.F(1)
-        for letter in word.Tietze():
-            if letter > 0:
-                result *= self.gen_imgs[letter - 1]
-            else:
-                result *= self.inverse_gen_imgs[- letter - 1]
-        return result
-
-    def __repr__(self):
-        return f"Automorphism defined by {self.gen_imgs}"
-
-
 def get_whitehead_move(F, v, choices):
     """
     Generate the whitehead move corresponding
@@ -64,7 +27,7 @@ def get_whitehead_move(F, v, choices):
     for x in range(abs(v) + 1, r + 1):
         s, t = choices[x - 2]
         gen_imgs.append([c for c in [s * v, x, -t * v] if c])
-    return FreeGroupAutomorphism(F, gen_imgs)
+    return F.hom([F(img) for img in gen_imgs])
 
 
 def get_whitehead_move_of_cut(F, v, Y):
@@ -96,4 +59,4 @@ def get_whitehead_move_of_cut(F, v, Y):
         gen_imgs.append(img)
     gen_imgs[abs(v) - 1] = [abs(v)]
 
-    return FreeGroupAutomorphism(F, gen_imgs)
+    return F.hom([F(img) for img in gen_imgs])
