@@ -102,7 +102,7 @@ class CoreGraph(object):
         origin = (0, )
         for src, dst, letter in edges_to_add:
             gen = self.F(1)
-            gen *= self.read_path(shortest_path(T, (origin), src), T_edges)
+            gen *= self.read_path(shortest_path(T, origin, src), T_edges)
             gen *= self.F([letter])
             gen *= self.read_path(shortest_path(T, dst, origin), T_edges)
             gens.append(gen)
